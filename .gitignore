@@ -143,6 +143,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+selenium_py/
 
 # Spyder project settings
 .spyderproject
