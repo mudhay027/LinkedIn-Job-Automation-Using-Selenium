@@ -19,6 +19,6 @@ class EasyApplyLinkedIn:
         self.driver.get("https://www.linkedin.com")
         input("Press Enter to exit...")  
 if __name__ == "__main__":
-    with open("config.json") as config_file:
+    with open("../config.json") as config_file:
         data = json.load(config_file)
     bot = EasyApplyLinkedIn(data)
