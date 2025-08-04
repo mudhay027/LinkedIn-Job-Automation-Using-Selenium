@@ -130,7 +130,9 @@ __pypackages__/
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid
-
+# Ignore WebDriver and environments
+drivers/
+*.exe
 # SageMath parsed files
 *.sage.py
 
@@ -144,7 +146,7 @@ ENV/
 env.bak/
 venv.bak/
 selenium_py/
-
+edgedriver_win64/
 # Spyder project settings
 .spyderproject
 .spyproject
