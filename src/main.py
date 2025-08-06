@@ -94,7 +94,15 @@ class EasyApplyLinkedIn:
         show_results_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@data-test-reusables-filters-modal-show-results-button='true']")))
         self.driver.execute_script("arguments[0].click();", show_results_btn)
         print("✅ Clicked 'Show results' button")
-        input('✅ Search complete. Press Enter to close browser...')
+
+        
+    def find_offers(self):
+        """This function finds all the offers through all the pages of the search results."""
+        
+        total_results_element = self.driver.find_element(By.CLASS_NAME, "display-flex.t-12.t-black--light.t-normal")
+        total_results_text = total_results_element.text.split(' ', 1)[0].replace(",", "")
+        total_results_int = int(total_results_text)
+        print("Total Results Found:", total_results_int)
         
     def apply(self):
         """Apply to job offers"""
@@ -105,6 +113,9 @@ class EasyApplyLinkedIn:
         self.job_search()
         time.sleep(15)
         self.filter()
+        time.sleep(2)
+        self.find_offers()
+        input('✅ Search complete. Press Enter to close browser...')
 if __name__ == "__main__":
     with open("../config.json") as config_file:
         data = json.load(config_file)
