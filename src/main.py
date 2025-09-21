@@ -1,4 +1,5 @@
 import time
+import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -11,16 +12,29 @@ def init_driver(headless=False):
     options = webdriver.ChromeOptions()
     if headless:
         options.add_argument("--headless=new")
+    options.add_argument("--disable-logging")
+    options.add_argument("--log-level=3")
+    options.add_argument("--disable-blink-features=AutomationControlled")
     driver = webdriver.Chrome(options=options)
     driver.maximize_window()
     return driver
 
+
 # ====== LinkedIn Login ======
 def linkedin_login(driver, username, password):
     driver.get("https://www.linkedin.com/login")
-    WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, "username"))).send_keys(username)
+    WebDriverWait(driver, 15).until(
+        EC.presence_of_element_located((By.ID, "username"))
+    ).send_keys(username)
     driver.find_element(By.ID, "password").send_keys(password + Keys.ENTER)
-    WebDriverWait(driver, 15).until(EC.url_contains("/feed"))
+
+    try:
+        WebDriverWait(driver, 20).until(
+            lambda d: "/feed" in d.current_url or "/jobs" in d.current_url
+        )
+        print("Logged in successfully!")
+    except TimeoutException:
+        input("Login not detected. Please complete captcha or 2FA, then press ENTER...")
 
 # ====== Job Search ======
 def search_jobs(driver, keywords, location):
@@ -32,17 +46,27 @@ def search_jobs(driver, keywords, location):
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "ul.jobs-search__results-list"))
         )
-        print("✅ Jobs listing loaded.")
+        print("Jobs listing loaded.")
     except TimeoutException:
-        input("⚠️ Please solve LinkedIn security check manually, then press ENTER...")
+        input("Please solve LinkedIn security check manually, then press ENTER...")
 
 # ====== Load More Job Cards ======
-def load_job_cards(driver, scroll_times=4, pause=2):
-    for _ in range(scroll_times):
+def load_job_cards(driver, pause=2, max_scrolls=30):
+    prev_count = 0
+    for i in range(max_scrolls):
         cards = driver.find_elements(By.XPATH, "//*[contains(@class,'job-card-container--clickable')]")
-        if cards:
-            driver.execute_script("arguments[0].scrollIntoView();", cards[-1])
+        if not cards:
+            break
+
+        driver.execute_script("arguments[0].scrollIntoView();", cards[-1])
         time.sleep(pause)
+
+        new_count = len(cards)
+        if new_count == prev_count:
+            print(f" Loaded all {new_count} job cards after {i+1} scrolls.")
+            break
+        prev_count = new_count
+
 
 # ====== Discard Application ======
 def discard_application(driver):
@@ -57,9 +81,9 @@ def discard_application(driver):
             EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Discard')]"))
         )
         driver.execute_script("arguments[0].click();", discard_btn)
-        print("🗑️ Application discarded")
+        print(" Application discarded")
     except Exception as e:
-        print("⚠️ Error discarding application:", e)
+        print(" Error discarding application:", e)
 
 # ====== Apply Easy Apply ======
 def apply_easy_apply(driver, idx):
@@ -83,13 +107,13 @@ def apply_easy_apply(driver, idx):
 
         if text in ["Submit application", "Apply now"]:
             driver.execute_script("arguments[0].click();", primary)
-            print(f"[{idx}] ✅ Application submitted")
+            print(f"[{idx}]  Application submitted")
         else:
-            print(f"[{idx}] ❌ Not direct submit, discarding.")
+            print(f"[{idx}]  Not direct submit, discarding.")
             discard_application(driver)
 
     except TimeoutException:
-        print(f"[{idx}] ⚠️ No modal button found, discarding.")
+        print(f"[{idx}]  No modal button found, discarding.")
         discard_application(driver)
 
     time.sleep(2)
@@ -113,34 +137,57 @@ def apply_to_listings(driver, max_per_page=None):
 # ====== Next Page ======
 def go_next_page(driver):
     try:
-        btn = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Next']"))
+        # Locate the "Next" button
+        next_btn = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(@class,'jobs-search-pagination__button--next') and not(@disabled)]"))
         )
-        driver.execute_script("arguments[0].click();", btn)
+        driver.execute_script("arguments[0].click();", next_btn)
+        print(" Moving to next page...")
+
+        # Wait for job cards on the new page to load
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//*[contains(@class,'job-card-container--clickable')]"))
+        )
+        time.sleep(2)
         return True
-    except Exception:
+    except TimeoutException:
+        print(" No next page available.")
+        return False
+    except Exception as e:
+        print(" Error moving to next page:", e)
         return False
 
-# ====== Main Entry ======
-def main(username, password, keywords="software engineer", location="India"):
+
+def main(username, password, keywords, location):
+    print(" Starting LinkedIn Job Automation Script...")
     driver = init_driver()
     try:
+        print("Logging into LinkedIn...")
         linkedin_login(driver, username, password)
+
+        print(f"Searching jobs: {keywords} in {location}")
         search_jobs(driver, keywords, location)
+
         page = 1
         while True:
-            print(f"\n=== Page {page} ===")
+            print(f"\n===  Processing Page {page} ===")
             load_job_cards(driver)
-            apply_to_listings(driver, max_per_page=None)  # go through ALL jobs on the page
+            apply_to_listings(driver)
+
             if not go_next_page(driver):
-                print("🚀 End of pages.")
+                print(" All pages processed. Job automation finished.")
                 break
             page += 1
-            time.sleep(3)
+
     finally:
+        input("Enter to terminate the browser")
         driver.quit()
+        print(" Browser closed. Program finished.")
+
 
 if __name__ == "__main__":
-    USERNAME = "msudhay2@gmail.com"
-    PASSWORD = "xxxxx"
-    main(USERNAME, PASSWORD, keywords="Data scientist", location="Chennai, India")
+    with open("../config.json") as config_file:
+        data = json.load(config_file)
+    main(data['email'],data['password'],data['keywords'],data['location'])
+    
+    
