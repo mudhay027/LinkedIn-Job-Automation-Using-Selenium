@@ -1,5 +1,3 @@
-## LinkedIn-Job-Automation-Using-Selenium
-```markdown
 # 🤖 LinkedIn Job Automation using Selenium
 
 This project automates the process of searching and applying for jobs on **LinkedIn** using **Python** and **Selenium WebDriver**.  
@@ -30,7 +28,7 @@ It automatically logs in, searches for jobs with given keywords & location, appl
 ---
 
 ## 📂 Project Structure
-```
+
 
 JOB AUTOMATION/
 │── drivers/                # ChromeDriver & EdgeDriver executables
